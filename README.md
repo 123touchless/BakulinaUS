@@ -4,7 +4,7 @@
 
 Эмулятор командной оболочки UNIX-подобной ОС.
 
-Вариант №2, этап 1 (REPL): минимальный прототип с командами-заглушками.
+Вариант №2, этап 1-2 (REPL): минимальный прототип с командами-заглушками.
 Приложение реализовано в форме консольного интерфейса (CLI).
 Приглашение к вводу содержит имя VFS.
 
@@ -21,10 +21,23 @@
 
 ## Сборка и запуск
 
+Запуск без параметров:
+
 ```bash
 python src/main.py
 ```
-- Windows: `run.bat`
+
+Запуск со стартовым скриптом:
+
+```bash
+python src/main.py --script scripts/start.txt
+```
+
+Запуск со всеми параметрами:
+
+```bash
+python src/main.py --vfs ./vfs_data --script scripts/start.txt
+```
 
 ## Запуск тестов
 
@@ -35,20 +48,17 @@ pytest
 ## Примеры использования
 
 ```text
-vfs$ ls /tmp
-ls ['/tmp']
-
-vfs$ cd $HOME
-cd ['/home/user']
-
+$ python src\main.py --script .\scripts\start.txt
+[debug] параметры запуска:
+[debug]   script = .\scripts\start.txt
+[debug]   vfs = (не задан)
+vfs$ ls -l /tmp
+ls ['-l', '/tmp']
+vfs$ cd $USERPROFILE
+cd ['C:Usersbakul']
 vfs$ cd a b
 cd: слишком много аргументов
-
-vfs$ unknown
-unknown: команда не найдена
-
-vfs$ ls "my file"
-ls ['my file']
-
+vfs$ foo
+foo: команда не найдена
 vfs$ exit
 ```

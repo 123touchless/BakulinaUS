@@ -1,0 +1,6 @@
+# стартовые скрипты
+ls -l /tmp
+cd $USERPROFILE
+cd a b
+foo
+exit
