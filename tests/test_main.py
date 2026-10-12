@@ -1,9 +1,20 @@
 import os
 import sys
+import pytest
+import json
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from main import is_skipped, parse, run_command, run_script
+from main import (
+    VfsError,
+    get_motd,
+    is_skipped,
+    load_vfs,
+    parse,
+    run_command,
+    run_script,
+    vfs_name_from_path,
+)
 
 def test_parse_simple_command():
     assert parse("ls /tmp") == ["ls", "/tmp"]
@@ -57,8 +68,69 @@ def test_run_script_shows_input_and_output(tmp_path, capsys):
 
 def test_run_script_missing_file_exits(tmp_path):
     missing = tmp_path / "no_such_file.txt"
-    try:
+    with pytest.raises(SystemExit) as err:
         run_script(str(missing))
-        assert False, "ожидался SystemExit"
-    except SystemExit as err:
-        assert err.code == 1
+    assert err.value.code == 1
+
+def write_vfs(tmp_path, data):
+    path = tmp_path / "test.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return str(path)
+
+
+def test_load_vfs_minimal(tmp_path):
+    root = load_vfs(write_vfs(tmp_path, {"type": "dir", "children": {}}))
+    assert root["type"] == "dir"
+
+
+def test_load_vfs_file_not_found(tmp_path):
+    with pytest.raises(VfsError, match="не найден"):
+        load_vfs(str(tmp_path / "no_such.json"))
+
+
+def test_load_vfs_invalid_json(tmp_path):
+    path = tmp_path / "broken.json"
+    path.write_text("{ oops", encoding="utf-8")
+    with pytest.raises(VfsError, match="неверный формат"):
+        load_vfs(str(path))
+
+
+def test_load_vfs_unknown_node_type(tmp_path):
+    data = {"type": "dir", "children": {"a": {"type": "weird"}}}
+    with pytest.raises(VfsError, match="неизвестный тип"):
+        load_vfs(write_vfs(tmp_path, data))
+
+
+def test_load_vfs_root_must_be_dir(tmp_path):
+    data = {"type": "file", "content": "x"}
+    with pytest.raises(VfsError, match="корень"):
+        load_vfs(write_vfs(tmp_path, data))
+
+
+def test_load_vfs_invalid_base64(tmp_path):
+    file_node = {"type": "file", "encoding": "base64", "content": "!!!"}
+    data = {"type": "dir", "children": {"b": file_node}}
+    with pytest.raises(VfsError, match="base64"):
+        load_vfs(write_vfs(tmp_path, data))
+
+def test_get_motd_present():
+    motd = {"type": "file", "content": "Привет\n"}
+    root = {"type": "dir", "children": {"motd": motd}}
+    assert get_motd(root) == "Привет\n"
+
+
+def test_get_motd_base64():
+    motd = {"type": "file", "encoding": "base64", "content": "SGk="}
+    root = {"type": "dir", "children": {"motd": motd}}
+    assert get_motd(root) == "Hi"
+
+
+def test_get_motd_absent():
+    assert get_motd({"type": "dir", "children": {}}) is None
+
+def test_vfs_name_from_path():
+    assert vfs_name_from_path("some/dir/my_vfs.json") == "my_vfs"
+
+
+def test_vfs_name_from_path_simple():
+    assert vfs_name_from_path("deep.json") == "deep"

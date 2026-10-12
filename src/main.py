@@ -2,12 +2,17 @@ import argparse
 import os
 import shlex
 import sys
+import base64
+import json
 
 VFS_NAME = "vfs"
 MAX_CD_ARGS = 1
 COMMENT_PREFIX = "#"
 NOT_SET = "(не задан)"
 EXIT_ERROR = 1
+
+class VfsError(Exception):
+    pass
 
 
 def parse(line):
@@ -29,6 +34,76 @@ def run_command(name, args):
         print(f"{name}: команда не найдена")
     return True
 
+def vfs_name_from_path(path):
+    base = os.path.basename(path)
+    name, _ = os.path.splitext(base)
+    return name
+
+
+def load_vfs(path):
+    if not os.path.isfile(path):
+        raise VfsError(f"VFS-файл не найден: {path}")
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    except json.JSONDecodeError as err:
+        raise VfsError(f"неверный формат JSON: {err}") from err
+    except OSError as err:
+        raise VfsError(f"не удалось прочитать файл: {err}") from err
+
+    if not isinstance(data, dict) or data.get("type") != "dir":
+        raise VfsError("корень VFS должен быть каталогом (type=dir)")
+
+    return _validate_node(data, name="/")
+
+
+def _validate_node(node, name):
+    if not isinstance(node, dict):
+        raise VfsError(f"узел '{name}': должен быть объектом")
+
+    node_type = node.get("type")
+
+    if node_type == "dir":
+        children = node.get("children", {})
+        if not isinstance(children, dict):
+            raise VfsError(
+                f"узел '{name}': children должен быть объектом")
+        for child_name, child in children.items():
+            child_path = f"{name.rstrip('/')}/{child_name}"
+            _validate_node(child, name=child_path)
+        return node
+
+    if node_type == "file":
+        content = node.get("content", "")
+        if node.get("encoding") == "base64":
+            try:
+                base64.b64decode(content, validate=True)
+            except Exception as err:
+                raise VfsError(
+                    f"файл '{name}': ошибка base64: {err}") from err
+        return node
+
+    raise VfsError(f"узел '{name}': неизвестный тип '{node_type}'")
+
+
+def get_motd(root):
+    if not isinstance(root, dict):
+        return None
+    children = root.get("children") or {}
+    motd = children.get("motd")
+    if not isinstance(motd, dict) or motd.get("type") != "file":
+        return None
+
+    content = motd.get("content", "")
+    if motd.get("encoding") == "base64":
+        try:
+            raw = base64.b64decode(content, validate=True)
+        except Exception:
+            return None
+        return raw.decode("utf-8", errors="replace")
+    return content
+
 
 def build_arg_parser():
     parser = argparse.ArgumentParser(
@@ -38,11 +113,12 @@ def build_arg_parser():
     return parser
 
 
-def print_debug(args):
+def print_debug(args, vfs_name=None):
     print("[debug] параметры запуска:")
     for name, value in sorted(vars(args).items()):
         shown = NOT_SET if value is None else value
         print(f"[debug]   {name} = {shown}")
+    print(f"[debug]   vfs_name = {vfs_name or NOT_SET}")
 
 
 def is_skipped(line):
@@ -100,7 +176,23 @@ def repl():
 
 def main():
     args = build_arg_parser().parse_args()
-    print_debug(args)
+
+    vfs_root = None
+    vfs_name = None
+    if args.vfs is not None:
+        try:
+            vfs_root = load_vfs(args.vfs)
+            vfs_name = vfs_name_from_path(args.vfs)
+        except VfsError as err:
+            print(f"ошибка загрузки VFS: {err}")
+            sys.exit(EXIT_ERROR)
+
+    print_debug(args, vfs_name)
+
+    if vfs_root is not None:
+        motd = get_motd(vfs_root)
+        if motd:
+            print(motd.rstrip("\n"))
 
     running = True
     if args.script is not None:

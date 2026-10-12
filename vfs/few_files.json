@@ -1,0 +1,8 @@
+{
+  "type": "dir",
+  "children": {
+    "motd": {"type": "file", "content": "Добро пожаловать в several!\n"},
+    "hello.txt": {"type": "file", "content": "Привет, мир!\n"},
+    "todo.txt": {"type": "file", "content": "1. сдать лабу\n"}
+  }
+}

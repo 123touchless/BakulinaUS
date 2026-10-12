@@ -1,6 +1,8 @@
 # стартовые скрипты
 ls -l /tmp
 cd $USERPROFILE
+ls "my file"
 cd a b
 foo
+"незакрытая кавычка
 exit

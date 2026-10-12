@@ -1,0 +1,33 @@
+{
+  "type": "dir",
+  "children": {
+    "motd": {"type": "file", "content": "Глубокая VFS (4 уровня)\n"},
+    "etc": {
+      "type": "dir",
+      "children": {
+        "config.txt": {"type": "file", "content": "mode=demo\n"}
+      }
+    },
+    "home": {
+      "type": "dir",
+      "children": {
+        "user": {
+          "type": "dir",
+          "children": {
+            "docs": {
+              "type": "dir",
+              "children": {
+                "notes.txt": {"type": "file", "content": "Заметки\n"},
+                "hello.bin": {
+                  "type": "file",
+                  "encoding": "base64",
+                  "content": "SGVsbG8gVkZTIQ=="
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
