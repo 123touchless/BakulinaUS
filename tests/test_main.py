@@ -10,11 +10,29 @@ from main import (
     get_motd,
     is_skipped,
     load_vfs,
+    new_state,
     parse,
     run_command,
     run_script,
     vfs_name_from_path,
 )
+
+SAMPLE_VFS = {
+    "type": "dir",
+    "children": {
+        "a.txt": {"type": "file", "content": "hello\n"},
+        "b.bin": {"type": "file", "encoding": "base64", "content": "SGk="},
+        "docs": {
+            "type": "dir",
+            "children": {
+                "n.txt": {"type": "file", "content": "note\n"},
+            },
+        },
+    },
+}
+
+def make_state():
+    return new_state(SAMPLE_VFS)
 
 def test_parse_simple_command():
     assert parse("ls /tmp") == ["ls", "/tmp"]
@@ -28,6 +46,27 @@ def test_parse_expands_environment_variable(monkeypatch):
 
 def test_parse_quoted_arguments():
     assert parse('ls "my file"') == ["ls", "my file"]
+
+def test_cd_dotdot_and_no_args():
+    state = make_state()
+    run_command("cd", ["docs"], state)
+    run_command("cd", [".."], state)
+    assert state["cwd"] == "/"
+    run_command("cd", ["docs"], state)
+    run_command("cd", [], state)
+    assert state["cwd"] == "/"
+
+def test_cd_to_file_is_error(capsys):
+    state = make_state()
+    run_command("cd", ["a.txt"], state)
+    assert state["cwd"] == "/"
+    assert "не каталог" in capsys.readouterr().out
+
+def test_cd_missing(capsys):
+    state = make_state()
+    run_command("cd", ["nothing"], state)
+    assert state["cwd"] == "/"
+    assert "нет такого" in capsys.readouterr().out
 
 def test_run_command_exit_returns_false():
     assert run_command("exit", []) is False
@@ -59,12 +98,12 @@ def test_is_skipped_real_command():
 
 def test_run_script_shows_input_and_output(tmp_path, capsys):
     script = tmp_path / "script.txt"
-    script.write_text("# комментарий\nls /tmp\nexit\n", encoding="utf-8")
+    script.write_text("# комментарий\necho hi\nexit\n", encoding="utf-8")
     running = run_script(str(script))
     captured = capsys.readouterr()
     assert running is False
-    assert "vfs$ ls /tmp" in captured.out
-    assert "ls ['/tmp']" in captured.out
+    assert "vfs$ echo hi" in captured.out
+    assert "\nhi\n" in captured.out
 
 def test_run_script_missing_file_exits(tmp_path):
     missing = tmp_path / "no_such_file.txt"

@@ -4,9 +4,18 @@ import shlex
 import sys
 import base64
 import json
+import calendar
+import datetime
+import posixpath
 
 VFS_NAME = "vfs"
 MAX_CD_ARGS = 1
+MAX_LS_ARGS = 1
+MAX_CAL_ARGS = 2
+MIN_MONTH = 1
+MAX_MONTH = 12
+MIN_YEAR = 1
+MAX_YEAR = 9999
 COMMENT_PREFIX = "#"
 NOT_SET = "(не задан)"
 EXIT_ERROR = 1
@@ -18,18 +27,119 @@ class VfsError(Exception):
 def parse(line):
     expanded = os.path.expandvars(line)
     return shlex.split(expanded)
+def new_state(root=None):
+    if root is None:
+        root = {"type": "dir", "children": {}}
+    return {"root": root, "cwd": "/"}
 
+def prompt(state):
+    return f"{VFS_NAME}:{state['cwd']}$ "
 
-def run_command(name, args):
+def abs_path(state, path):
+    if not path.startswith("/"):
+        path = state["cwd"] + "/" + path
+    return "/" + posixpath.normpath(path).lstrip("/")
+
+def find_node(root, path):
+    node = root
+    for part in path.split("/"):
+        if not part:
+            continue
+        if node.get("type") != "dir":
+            return None
+        node = node.get("children", {}).get(part)
+        if node is None:
+            return None
+    return node
+
+def read_file(node):
+    content = node.get("content", "")
+    if node.get("encoding") == "base64":
+        return base64.b64decode(content).decode("utf-8", errors="replace")
+    return content
+
+def cmd_ls(args, state):
+    """ls [путь]: показывает содержимое каталога."""
+    if len(args) > MAX_LS_ARGS:
+        print("ls: слишком много аргументов")
+        return
+    target = args[0] if args else "."
+    node = find_node(state["root"], abs_path(state, target))
+    if node is None:
+        print(f"ls: {target}: нет такого файла или каталога")
+    elif node["type"] == "file":
+        print(target)
+    else:
+        children = node.get("children", {})
+        for name in sorted(children):
+            suffix = "/" if children[name]["type"] == "dir" else ""
+            print(name + suffix)
+
+def cmd_cd(args, state):
+    if len(args) > MAX_CD_ARGS:
+        print("cd: слишком много аргументов")
+        return
+    target = args[0] if args else "/"
+    path = abs_path(state, target)
+    node = find_node(state["root"], path)
+    if node is None:
+        print(f"cd: {target}: нет такого каталога")
+    elif node["type"] != "dir":
+        print(f"cd: {target}: не каталог")
+    else:
+        state["cwd"] = path
+
+def cmd_echo(args):
+    print(" ".join(args))
+
+def cmd_cat(args, state):
+    if not args:
+        print("cat: не указан файл")
+        return
+    for target in args:
+        node = find_node(state["root"], abs_path(state, target))
+        if node is None:
+            print(f"cat: {target}: нет такого файла")
+        elif node["type"] == "dir":
+            print(f"cat: {target}: это каталог")
+        else:
+            print(read_file(node).rstrip("\n"))
+
+def cmd_cal(args):
+    if len(args) > MAX_CAL_ARGS:
+        print("cal: слишком много аргументов")
+        return
+    try:
+        numbers = [int(arg) for arg in args]
+    except ValueError:
+        print("cal: аргументы должны быть числами")
+        return
+    today = datetime.date.today()
+    month = numbers[0] if numbers else today.month
+    year = numbers[1] if len(numbers) > 1 else today.year
+    if not MIN_MONTH <= month <= MAX_MONTH:
+        print(f"cal: месяц должен быть от {MIN_MONTH} до {MAX_MONTH}")
+    elif not MIN_YEAR <= year <= MAX_YEAR:
+        print(f"cal: год должен быть от {MIN_YEAR} до {MAX_YEAR}")
+    else:
+        text = calendar.TextCalendar(calendar.SUNDAY)
+        print(text.formatmonth(year, month).rstrip())
+
+def run_command(name, args, state=None):
+    if state is None:
+        state = new_state()
     if name == "exit":
         return False
     if name == "cd":
-        if len(args) > MAX_CD_ARGS:
-            print("cd: слишком много аргументов")
-        else:
-            print(f"cd {args}")
+        cmd_cd(args, state)
     elif name == "ls":
-        print(f"ls {args}")
+        cmd_ls(args, state)
+    elif name == "echo":
+        cmd_echo(args)
+    elif name == "cal":
+        cmd_cal(args)
+    elif name == "cat":
+        cmd_cat(args, state)
     else:
         print(f"{name}: команда не найдена")
     return True

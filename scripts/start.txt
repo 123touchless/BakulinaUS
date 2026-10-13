@@ -1,8 +1,47 @@
 # стартовые скрипты
-ls -l /tmp
-cd $USERPROFILE
-ls "my file"
+#ls
+ls
+ls home
+ls /home/user/docs
+ls /etc/config.txt
+ls nothing
+ls a b
+
+#cd
+cd home/user
+ls
+cd docs
+ls
+cd ..
+cd ../..
+cd /etc
+cd
+cd nothing
+cd /etc/config.txt
 cd a b
+
+#echo
+echo Привет, мир
+echo "много   пробелов" и $HOME
+echo
+
+#cat
+cd /home/user/docs
+cat notes.txt
+cat hello.bin
+cat notes.txt hello.bin
+cat /etc/config.txt
+cat
+cat nothing.txt
+cat /home
+
+#cal
+cal 2 2024
+cal 13 2024
+cal abc
+cal 1 2 3
+
+#ошибки
 foo
-"незакрытая кавычка
+
 exit

@@ -4,17 +4,19 @@
 
 Эмулятор командной оболочки UNIX-подобной ОС.
 
-Вариант №2, этап 1-3: REPL с командами-заглушками, поддержкой параметров
+Вариант №2, этап 1-4: REPL с командами-заглушками, поддержкой параметров
 командной строки и виртуальной файловой системой (VFS).
 Приложение реализовано в форме консольного интерфейса (CLI).
 Приглашение к вводу содержит имя VFS.
 
 ## Функции
 
-- `ls` - команда-заглушка, выводит своё имя и список аргументов.
-- `cd` - команда-заглушка, выводит своё имя и список аргументов.
-  Если передано больше одного аргумента - выводится сообщение об ошибке.
+- `ls` - выводит содержимое каталога VFS.
+- `cd` - меняет текущий каталог. Поддерживает абсолютные и относительные пути.
+- `cat` - выводит содержимое файлов.
+- `echo` - печатает аргументы через пробел.
 - `exit` - завершение работы эмулятора.
+- `cal` - календарь на месяц (по умолчанию текущий).
 - Парсер поддерживает раскрытие переменных окружения реальной ОС
   (например, `$HOME`, `$PATH`) через `os.path.expandvars`.
 - Парсер корректно обрабатывает аргументы в кавычках (через `shlex`).
@@ -61,18 +63,58 @@ python src/main.py --vfs vfs/few_files.json --script scripts/start.txt
 [debug]   vfs = vfs/few_files.json
 [debug]   vfs_name = few_files
 Добро пожаловать в several!
-vfs$ ls -l /tmp
-ls ['-l', '/tmp']
-vfs$ cd $USERPROFILE
-cd ['C:Usersbakul']
-vfs$ ls "my file"
-ls ['my file']
+vfs$ ls
+vfs$ ls home
+ls: home: нет такого файла или каталога
+vfs$ ls /home/user/docs
+ls: /home/user/docs: нет такого файла или каталога
+vfs$ ls /etc/config.txt
+ls: /etc/config.txt: нет такого файла или каталога
+vfs$ ls nothing
+ls: nothing: нет такого файла или каталога
+vfs$ ls a b
+ls: слишком много аргументов
+vfs$ cd home/user
+cd: home/user: нет такого каталога
+vfs$ ls
+vfs$ cd docs
+cd: docs: нет такого каталога
+vfs$ ls
+vfs$ cd ..
+vfs$ cd ../..
+vfs$ cd /etc
+cd: /etc: нет такого каталога
+vfs$ cd
+vfs$ cd nothing
+cd: nothing: нет такого каталога
+vfs$ cd /etc/config.txt
+cd: /etc/config.txt: нет такого каталога
 vfs$ cd a b
 cd: слишком много аргументов
+vfs$ echo Привет, мир
+Привет, мир
+vfs$ echo "много   пробелов" и $HOME
+много   пробелов и $HOME
+vfs$ echo
+
+vfs$ cd /home/user/docs
+cd: /home/user/docs: нет такого каталога
+vfs$ cat notes.txt
+cat: notes.txt: нет такого файла
+vfs$ cat hello.bin
+cat: hello.bin: нет такого файла
+vfs$ cat notes.txt hello.bin
+cat: notes.txt: нет такого файла
+cat: hello.bin: нет такого файла
+vfs$ cat /etc/config.txt
+cat: /etc/config.txt: нет такого файла
+vfs$ cat
+cat: не указан файл
+vfs$ cat nothing.txt
+cat: nothing.txt: нет такого файла
+vfs$ cat /home
+cal: слишком много аргументов
 vfs$ foo
 foo: команда не найдена
-vfs$ "незакрытая кавычка
-ошибка в строке 7 скрипта: ошибка разбора: No closing quotation
 vfs$ exit
-
 ```
