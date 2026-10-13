@@ -41,6 +41,24 @@ cal 13 2024
 cal abc
 cal 1 2 3
 
+#mv
+cd /home/user/docs
+mv notes.txt renamed.txt
+ls
+cat renamed.txt
+mv renamed.txt /etc
+ls /etc
+mv /etc/renamed.txt /etc/renamed2.txt
+ls /etc
+
+#mv: ошибки
+mv
+mv notes.txt
+mv nothing.txt dst.txt
+mv /home /home/user
+mv /etc/renamed2.txt /etc/renamed2.txt
+mv hello.bin /etc/renamed2.txt
+
 #ошибки
 foo
 

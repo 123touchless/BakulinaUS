@@ -173,3 +173,25 @@ def test_vfs_name_from_path():
 
 def test_vfs_name_from_path_simple():
     assert vfs_name_from_path("deep.json") == "deep"
+
+def test_mv_rename_file(capsys):
+    state = make_state()
+    run_command("mv", ["a.txt", "b.txt"], state)
+    run_command("ls", [], state)
+    out = capsys.readouterr().out
+    assert "b.txt" in out
+    assert "a.txt" not in out
+
+
+def test_mv_wrong_arg_count(capsys):
+    state = make_state()
+    run_command("mv", ["a.txt"], state)
+    assert "источник и назначение" in capsys.readouterr().out
+
+
+def test_mv_source_not_found(capsys):
+    state = make_state()
+    run_command("mv", ["nothing", "b.txt"], state)
+    assert "нет такого файла" in capsys.readouterr().out
+
+

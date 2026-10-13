@@ -16,6 +16,7 @@ MIN_MONTH = 1
 MAX_MONTH = 12
 MIN_YEAR = 1
 MAX_YEAR = 9999
+MV_ARGS = 2
 COMMENT_PREFIX = "#"
 NOT_SET = "(не задан)"
 EXIT_ERROR = 1
@@ -59,7 +60,6 @@ def read_file(node):
     return content
 
 def cmd_ls(args, state):
-    """ls [путь]: показывает содержимое каталога."""
     if len(args) > MAX_LS_ARGS:
         print("ls: слишком много аргументов")
         return
@@ -125,6 +125,48 @@ def cmd_cal(args):
         text = calendar.TextCalendar(calendar.SUNDAY)
         print(text.formatmonth(year, month).rstrip())
 
+def is_inside(path, parent):
+    return path == parent or path.startswith(parent + "/")
+
+
+def move_error(state, src, dst):
+    if src == "/":
+        return "нельзя переместить корневой каталог"
+    if dst == src:
+        return "источник и назначение совпадают"
+    parent = find_node(state["root"], posixpath.dirname(dst))
+    if parent is None or parent["type"] != "dir":
+        return "каталог назначения не найден"
+    if is_inside(dst, src) or is_inside(state["cwd"], src):
+        return "нельзя переместить каталог внутрь себя или текущий каталог"
+    if posixpath.basename(dst) in parent.get("children", {}):
+        return "назначение уже существует"
+    return None
+
+
+def cmd_mv(args, state):
+    if len(args) != MV_ARGS:
+        print("mv: нужно указать источник и назначение")
+        return
+    root = state["root"]
+    src = abs_path(state, args[0])
+    dst = abs_path(state, args[1])
+    node = find_node(root, src)
+    if node is None:
+        print(f"mv: {args[0]}: нет такого файла или каталога")
+        return
+    target = find_node(root, dst)
+    if target is not None and target["type"] == "dir":
+        dst = posixpath.join(dst, posixpath.basename(src))
+    error = move_error(state, src, dst)
+    if error:
+        print(f"mv: {error}")
+        return
+    old_parent = find_node(root, posixpath.dirname(src))
+    new_parent = find_node(root, posixpath.dirname(dst))
+    del old_parent["children"][posixpath.basename(src)]
+    new_parent.setdefault("children", {})[posixpath.basename(dst)] = node
+
 def run_command(name, args, state=None):
     if state is None:
         state = new_state()
@@ -140,6 +182,8 @@ def run_command(name, args, state=None):
         cmd_cal(args)
     elif name == "cat":
         cmd_cat(args, state)
+    elif name == "mv":
+        cmd_mv(args, state)
     else:
         print(f"{name}: команда не найдена")
     return True
